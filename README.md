@@ -1,5 +1,5 @@
 <div align="center">
-  <img width="1200" alt="Solstice Runner Gameplay" src="https://x-tahosin.github.io/Solstice-Runner/promo_5.png" />
+  <img width="1200" alt="Solstice Runner Gameplay" src="https://x-tahosin.github.io/Solstice-Runner/cover_image.jpg" />
   
   # 🏃‍♂️ Solstice Runner ☀️
 
