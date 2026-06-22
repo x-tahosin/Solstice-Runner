@@ -134,11 +134,7 @@ export default function App() {
   };
 
   return (
-    <div 
-      className="w-screen h-screen overflow-hidden bg-zinc-950 font-sans select-none relative touch-none"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div className="w-screen h-screen overflow-hidden bg-zinc-950 font-sans select-none relative touch-none">
       <Canvas 
         shadows 
         camera={{ position: [0, 4, 8], fov: 60, rotation: [-0.2, 0, 0] }}
@@ -149,6 +145,14 @@ export default function App() {
         <Player />
         <World />
       </Canvas>
+      
+      {/* Swipe Overlay to ensure Canvas does not steal touch events */}
+      <div 
+        className="absolute inset-0 touch-none"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      />
+
       <UI />
     </div>
   );
