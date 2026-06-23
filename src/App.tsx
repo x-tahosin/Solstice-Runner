@@ -70,68 +70,84 @@ export default function App() {
       }
     };
 
+    const handleTouchStart = (e: TouchEvent) => {
+      if (state.status !== 'PLAYING') return;
+      touchStartX = e.changedTouches[0].clientX;
+      touchStartY = e.changedTouches[0].clientY;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (state.status === 'PLAYING') {
+        e.preventDefault();
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (state.status !== 'PLAYING') return;
+
+      const touchEndX = e.changedTouches[0].clientX;
+      const touchEndY = e.changedTouches[0].clientY;
+
+      const dx = touchEndX - touchStartX;
+      const dy = touchEndY - touchStartY;
+
+      const minSwipeDistance = 30;
+
+      if (Math.abs(dx) > Math.abs(dy)) {
+        // Horizontal swipe
+        if (Math.abs(dx) > minSwipeDistance) {
+          if (dx > 0) {
+            // Swipe right
+            if (state.targetLane < 1) state.targetLane++;
+          } else {
+            // Swipe left
+            if (state.targetLane > -1) state.targetLane--;
+          }
+        }
+      } else {
+        // Vertical swipe
+        if (Math.abs(dy) > minSwipeDistance) {
+          if (dy > 0) {
+            // Swipe down (slide)
+            if (state.y <= 0.1 && !state.isSliding) {
+              state.isSliding = true;
+              state.slideTimer = 0.8;
+              audioManager.playSlide();
+            } else if (state.y > 0.1 && !state.isSliding) {
+              state.yVel = -40;
+              state.isSliding = true;
+              state.slideTimer = 1.0;
+              audioManager.playSlide();
+            }
+          } else {
+            // Swipe up (jump)
+            const canDoubleJump = store.selChar === 'c2';
+
+            if (state.y <= 0.1 && !state.isSliding) {
+              state.yVel = 26;
+              audioManager.playJump();
+            } else if (canDoubleJump && !state.doubleJumped && !state.isSliding) {
+              state.yVel = 22;
+              state.doubleJumped = true;
+              audioManager.playJump();
+            }
+          }
+        }
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown, { passive: false });
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
   }, []);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX = e.changedTouches[0].screenX;
-    touchStartY = e.changedTouches[0].screenY;
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (state.status !== 'PLAYING') return;
-
-    const touchEndX = e.changedTouches[0].screenX;
-    const touchEndY = e.changedTouches[0].screenY;
-
-    const dx = touchEndX - touchStartX;
-    const dy = touchEndY - touchStartY;
-
-    const minSwipeDistance = 30;
-
-    if (Math.abs(dx) > Math.abs(dy)) {
-      // Horizontal swipe
-      if (Math.abs(dx) > minSwipeDistance) {
-        if (dx > 0) {
-          // Swipe right
-          if (state.targetLane < 1) state.targetLane++;
-        } else {
-          // Swipe left
-          if (state.targetLane > -1) state.targetLane--;
-        }
-      }
-    } else {
-      // Vertical swipe
-      if (Math.abs(dy) > minSwipeDistance) {
-        if (dy > 0) {
-          // Swipe down (slide)
-          if (state.y <= 0.1 && !state.isSliding) {
-            state.isSliding = true;
-            state.slideTimer = 0.8;
-            audioManager.playSlide();
-          } else if (state.y > 0.1 && !state.isSliding) {
-            state.yVel = -40;
-            state.isSliding = true;
-            state.slideTimer = 1.0;
-            audioManager.playSlide();
-          }
-        } else {
-          // Swipe up (jump)
-          const canDoubleJump = store.selChar === 'c2';
-
-          if (state.y <= 0.1 && !state.isSliding) {
-            state.yVel = 26;
-            audioManager.playJump();
-          } else if (canDoubleJump && !state.doubleJumped && !state.isSliding) {
-            state.yVel = 22;
-            state.doubleJumped = true;
-            audioManager.playJump();
-          }
-        }
-      }
-    }
-  };
 
   return (
     <div className="w-screen h-screen overflow-hidden bg-zinc-950 font-sans select-none relative touch-none">
@@ -145,13 +161,6 @@ export default function App() {
         <Player />
         <World />
       </Canvas>
-      
-      {/* Swipe Overlay to ensure Canvas does not steal touch events */}
-      <div 
-        className="absolute inset-0 touch-none"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      />
 
       <UI />
     </div>
