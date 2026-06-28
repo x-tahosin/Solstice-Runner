@@ -187,8 +187,8 @@ export function UI() {
              <button onClick={() => { state.status = 'SKILLS'; setStatus('SKILLS'); }} className="flex items-center gap-2 bg-zinc-900/80 hover:bg-zinc-700 text-zinc-300 px-5 py-3 rounded-full font-bold uppercase tracking-widest text-xs sm:text-sm transition-colors border border-zinc-700 hover:border-orange-500/50 shadow-lg">
                  <Target size={16} /> Skills
              </button>
-             <button onClick={() => { state.status = 'AI_FORGE'; setStatus('AI_FORGE'); }} className="flex items-center gap-2 bg-gradient-to-r from-purple-900/80 to-blue-900/80 hover:from-purple-800 hover:to-blue-800 text-zinc-200 px-5 py-3 rounded-full font-bold uppercase tracking-widest text-xs sm:text-sm transition-colors border border-purple-500/50 hover:border-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.4)]">
-                 <Sparkles size={16} className="text-purple-300" /> AI Forge
+             <button onClick={() => { state.status = 'AI_FORGE'; setStatus('AI_FORGE'); }} className="flex items-center gap-2 bg-gradient-to-r from-orange-900/80 to-red-900/80 hover:from-orange-800 hover:to-red-800 text-zinc-200 px-5 py-3 rounded-full font-bold uppercase tracking-widest text-xs sm:text-sm transition-colors border border-orange-500/50 hover:border-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.4)]">
+                 <Sparkles size={16} className="text-orange-300" /> AI Forge
              </button>
           </div>
         </div>
@@ -472,26 +472,26 @@ export function UI() {
       {status === 'AI_FORGE' && (
          <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center overflow-y-auto pointer-events-auto backdrop-blur-xl px-4 py-8">
              <div className="absolute top-8 left-8">
-                 <button onClick={() => { state.status = 'MENU'; setStatus('MENU'); }} className="text-white flex items-center gap-2 font-bold tracking-widest uppercase hover:text-purple-400 transition-colors">
+                 <button onClick={() => { state.status = 'MENU'; setStatus('MENU'); }} className="text-white flex items-center gap-2 font-bold tracking-widest uppercase hover:text-orange-400 transition-colors">
                      <ArrowLeft /> Back
                  </button>
              </div>
              
-             <h2 className="text-4xl font-black text-white italic tracking-tighter mb-8"><span className="text-purple-500">AI</span> FORGE</h2>
+             <h2 className="text-4xl font-black text-white italic tracking-tighter mb-8"><span className="text-orange-500">AI</span> FORGE</h2>
              
-             <div className="bg-zinc-900 border border-purple-500/30 p-8 rounded-2xl w-full max-w-xl shadow-[0_0_30px_rgba(168,85,247,0.2)]">
+             <div className="bg-zinc-900 border border-orange-500/30 p-8 rounded-2xl w-full max-w-xl shadow-[0_0_30px_rgba(249,115,22,0.2)]">
                 <p className="text-zinc-400 mb-6 text-sm text-center">Enter your Gemini API key and write a prompt to generate custom game content.</p>
 
                 <div className="mb-6">
                     <label className="block text-zinc-300 font-bold uppercase tracking-widest text-sm mb-2 flex flex-items-center gap-2"><Key size={14}/> Gemini API Key</label>
-                    <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="AIzaSy..." className="w-full bg-black border border-zinc-700 rounded-lg px-4 py-3 text-white font-mono focus:outline-none focus:border-purple-500 transition-colors" />
+                    <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="AIzaSy..." className="w-full bg-black border border-zinc-700 rounded-lg px-4 py-3 text-white font-mono focus:outline-none focus:border-orange-500 transition-colors" />
                 </div>
 
                 <div className="mb-6">
                     <label className="block text-zinc-300 font-bold uppercase tracking-widest text-sm mb-2">Forge Type</label>
                     <div className="flex bg-black rounded-lg p-1 border border-zinc-700">
                         {['chars', 'maps', 'skills'].map(t => (
-                            <button key={t} onClick={() => setForgeType(t as any)} className={`flex-1 py-2 rounded-md font-bold uppercase tracking-wide text-sm transition-colors ${forgeType === t ? 'bg-purple-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
+                            <button key={t} onClick={() => setForgeType(t as any)} className={`flex-1 py-2 rounded-md font-bold uppercase tracking-wide text-sm transition-colors ${forgeType === t ? 'bg-orange-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
                                 {t}
                             </button>
                         ))}
@@ -500,10 +500,10 @@ export function UI() {
 
                 <div className="mb-6">
                     <label className="block text-zinc-300 font-bold uppercase tracking-widest text-sm mb-2">Prompt</label>
-                    <textarea value={forgePrompt} onChange={e => setForgePrompt(e.target.value)} placeholder="A blazing fire demon..." className="w-full h-24 bg-black border border-zinc-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500 transition-colors resize-none" />
+                    <textarea value={forgePrompt} onChange={e => setForgePrompt(e.target.value)} placeholder="A blazing fire demon..." className="w-full h-24 bg-black border border-zinc-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-orange-500 transition-colors resize-none" />
                 </div>
 
-                <button onClick={handleForge} disabled={isForging} className="w-full py-4 rounded-xl font-black uppercase tracking-[0.2em] bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white shadow-[0_0_20px_rgba(168,85,247,0.4)] disabled:opacity-50 transition-all">
+                <button onClick={handleForge} disabled={isForging} className="w-full py-4 rounded-xl font-black uppercase tracking-[0.2em] bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white shadow-[0_0_20px_rgba(249,115,22,0.4)] disabled:opacity-50 transition-all">
                     {isForging ? 'Forging...' : 'Initiate Sequence'}
                 </button>
 

@@ -3,6 +3,71 @@ import { useFrame } from "@react-three/fiber";
 import { state, LANE_WIDTH } from "../game";
 import { useGameStore, ITEMS } from "../store";
 import * as THREE from "three";
+const capeVertexShader = `
+varying vec2 vUv;
+uniform float time;
+void main() {
+  vUv = uv;
+  vec3 pos = position;
+  float wave = sin(pos.y * 5.0 - time * 8.0) * (1.0 - uv.y) * 0.15;
+  pos.z += wave;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+}
+`;
+
+const capeFragmentShader = `
+uniform float time;
+varying vec2 vUv;
+float snoise(vec2 v) {
+   return fract(sin(dot(v, vec2(12.9898, 78.233))) * 43758.5453);
+}
+void main() {
+  vec4 color = vec4(0.08, 0.08, 0.08, 1.0);
+  float n = snoise(vUv * 15.0 + time * 0.5);
+  float edgeMask = smoothstep(0.0, 0.2, vUv.y + (n * 0.2 - 0.1));
+  if(edgeMask < 0.1) discard;
+  
+  if(edgeMask < 0.3) {
+      color.rgb = mix(vec3(1.0, 0.4, 0.0), color.rgb, smoothstep(0.1, 0.3, edgeMask));
+  }
+  
+  vec2 cuv = vUv - vec2(0.5, 0.7);
+  float r = length(cuv) * 2.0;
+  float p1 = smoothstep(0.02, 0.0, abs(cuv.y)) * smoothstep(0.2, 0.05, abs(cuv.x));
+  float p2 = smoothstep(0.02, 0.0, abs(cuv.x)) * smoothstep(0.2, 0.05, abs(cuv.y));
+  vec2 cuvRot = vec2(cuv.x * 0.707 - cuv.y * 0.707, cuv.x * 0.707 + cuv.y * 0.707);
+  float p3 = smoothstep(0.015, 0.0, abs(cuvRot.y)) * smoothstep(0.15, 0.05, abs(cuvRot.x));
+  float p4 = smoothstep(0.015, 0.0, abs(cuvRot.x)) * smoothstep(0.15, 0.05, abs(cuvRot.y));
+  float star = max(max(p1, p2), max(p3, p4));
+  float ring = smoothstep(0.015, 0.0, abs(r - 0.15));
+  float sunGlow = max(star, ring);
+  
+  if(sunGlow > 0.0) {
+      color.rgb = mix(color.rgb, vec3(1.0, 0.6, 0.1) * 2.0, sunGlow);
+  }
+  gl_FragColor = color;
+}
+`;
+
+function Cape() {
+  const matRef = useRef<THREE.ShaderMaterial>(null);
+  useFrame((state) => {
+    if (matRef.current) matRef.current.uniforms.time.value = state.clock.elapsedTime;
+  });
+  return (
+    <mesh position={[0, -0.1, -0.18]} rotation={[-0.2, 0, 0]} castShadow>
+      <planeGeometry args={[0.5, 1.2, 16, 16]} />
+      <shaderMaterial
+        ref={matRef}
+        vertexShader={capeVertexShader}
+        fragmentShader={capeFragmentShader}
+        uniforms={{ time: { value: 0 } }}
+        side={THREE.DoubleSide}
+        transparent={true}
+      />
+    </mesh>
+  );
+}
 
 export function Player() {
   const groupRef = useRef<THREE.Group>(null);
@@ -178,178 +243,395 @@ export function Player() {
   );
   const buckleMat = <meshStandardMaterial color="#ef4444" roughness={0.8} />; // Red scarf/bandana
 
+  const runnerSuitMat = <meshStandardMaterial color="#141414" roughness={0.9} />;
+  const runnerGlowMat = <meshStandardMaterial color="#ffaa00" emissive="#ff5500" emissiveIntensity={2.5} />;
+  const runnerSkinMat = <meshStandardMaterial color="#ffccaa" roughness={0.6} />;
+
+  const hair = (
+    <group position={[0, 0.08, 0]}>
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+        <mesh key={i} rotation={[0.5, i * (Math.PI / 4), 0]} position={[0, 0, 0]}>
+          <coneGeometry args={[0.07, 0.2, 4]} />
+          <meshStandardMaterial color="#050505" roughness={0.9} />
+        </mesh>
+      ))}
+      {[0, 1, 2, 3].map((i) => (
+        <mesh key={i + 10} rotation={[0.2, i * (Math.PI / 2), 0]} position={[0, 0.05, 0]}>
+          <coneGeometry args={[0.06, 0.18, 4]} />
+          <meshStandardMaterial color="#050505" roughness={0.9} />
+        </mesh>
+      ))}
+    </group>
+  );  const trunkMat = <meshStandardMaterial color="#1a1a1a" roughness={0.9} />; // Dark grey shorts
+
   const adventurer = (
     <group ref={torsoRef} position={[0, 1.4, 0]}>
-      <mesh castShadow receiveShadow position={[0, -0.2, 0]}>
-        <capsuleGeometry args={[0.25, 0.5, 4, 16]} />
-        {shirtMat}
-      </mesh>
-      <mesh castShadow receiveShadow position={[0, -0.45, 0]}>
-        <cylinderGeometry args={[0.26, 0.26, 0.1, 16]} />
-        {beltMat}
-      </mesh>
-      <mesh castShadow receiveShadow position={[0, -0.15, -0.2]}>
-        <boxGeometry args={[0.4, 0.5, 0.2]} />
-        {backpackMat}
-      </mesh>
-      <mesh
-        castShadow
-        receiveShadow
-        position={[0, 0.15, -0.22]}
-        rotation={[0, 0, Math.PI / 2]}
-      >
-        <cylinderGeometry args={[0.12, 0.12, 0.45, 12]} />
-        <meshStandardMaterial color="#475569" roughness={0.9} />
-      </mesh>
-      <mesh
-        castShadow
-        receiveShadow
-        position={[0, 0.1, 0.05]}
-        rotation={[0.2, 0, 0]}
-      >
-        <torusGeometry args={[0.15, 0.05, 8, 16]} />
-        {buckleMat}
-      </mesh>
-      <mesh
-        castShadow
-        receiveShadow
-        position={[0, 0.0, -0.15]}
-        rotation={[-0.4, 0, 0]}
-      >
-        <planeGeometry args={[0.15, 0.25]} />
-        <meshStandardMaterial
-          color="#ef4444"
-          roughness={0.8}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
 
-      <group ref={headRef} position={[0, 0.4, 0]}>
-        <mesh castShadow receiveShadow position={[0, -0.2, 0]}>
-          <cylinderGeometry args={[0.08, 0.08, 0.2, 16]} />
-          {skinMat}
+      {/* ===== CORE & ABS (Clothed) ===== */}
+      <group position={[0, -0.1, 0]}>
+        {/* Upper Chest (Pectorals) */}
+        <mesh position={[-0.08, 0.08, 0.08]} scale={[1, 0.7, 0.4]} castShadow receiveShadow>
+          <sphereGeometry args={[0.1, 16, 16]} />
+          {runnerSuitMat}
         </mesh>
-        <mesh castShadow receiveShadow position={[0, 0.05, 0]}>
-          <sphereGeometry args={[0.22, 32, 32]} />
-          {skinMat}
+        <mesh position={[0.08, 0.08, 0.08]} scale={[1, 0.7, 0.4]} castShadow receiveShadow>
+          <sphereGeometry args={[0.1, 16, 16]} />
+          {runnerSuitMat}
         </mesh>
-        <mesh castShadow receiveShadow position={[0, 0.2, 0]}>
-          <cylinderGeometry args={[0.35, 0.35, 0.04, 32]} />
-          {hatMat}
+
+        {/* Ribcage / Core base */}
+        <mesh position={[0, -0.05, 0]} scale={[1, 1.3, 0.6]} castShadow receiveShadow>
+          <sphereGeometry args={[0.16, 16, 16]} />
+          {runnerSuitMat}
         </mesh>
-        <mesh castShadow receiveShadow position={[0, 0.3, 0]}>
-          <cylinderGeometry args={[0.2, 0.22, 0.2, 32]} />
-          {hatMat}
+
+        {/* Glowing Straps */}
+        <mesh castShadow receiveShadow position={[0, 0.0, 0.1]} rotation={[0, 0, 0.5]}>
+          <boxGeometry args={[0.3, 0.02, 0.05]} />
+          {runnerGlowMat}
         </mesh>
-        <mesh castShadow receiveShadow position={[0, 0.15, -0.1]}>
-          <sphereGeometry
-            args={[0.23, 32, 32, 0, Math.PI * 2, 0, Math.PI / 1.8]}
-          />
-          <meshStandardMaterial color="#451a03" roughness={0.9} />
+        <mesh castShadow receiveShadow position={[0, 0.0, 0.1]} rotation={[0, 0, -0.5]}>
+          <boxGeometry args={[0.3, 0.02, 0.05]} />
+          {runnerGlowMat}
         </mesh>
-        <mesh position={[-0.08, 0.08, 0.2]}>
-          <sphereGeometry args={[0.03, 16, 16]} />
-          <meshBasicMaterial color="black" />
+        <mesh castShadow receiveShadow position={[0, -0.05, 0.11]} rotation={[Math.PI/2, 0, 0]}>
+          <cylinderGeometry args={[0.03, 0.03, 0.02, 16]} />
+          {runnerGlowMat}
         </mesh>
-        <mesh position={[0.08, 0.08, 0.2]}>
-          <sphereGeometry args={[0.03, 16, 16]} />
-          <meshBasicMaterial color="black" />
+
+        {/* Abs (3 tiers) */}
+        <mesh position={[-0.04, -0.02, 0.1]} scale={[1, 1.2, 0.5]} castShadow receiveShadow>
+          <sphereGeometry args={[0.04, 16, 16]} />
+          {runnerSuitMat}
+        </mesh>
+        <mesh position={[0.04, -0.02, 0.1]} scale={[1, 1.2, 0.5]} castShadow receiveShadow>
+          <sphereGeometry args={[0.04, 16, 16]} />
+          {runnerSuitMat}
+        </mesh>
+        
+        <mesh position={[-0.035, -0.1, 0.09]} scale={[1, 1.2, 0.5]} castShadow receiveShadow>
+          <sphereGeometry args={[0.04, 16, 16]} />
+          {runnerSuitMat}
+        </mesh>
+        <mesh position={[0.035, -0.1, 0.09]} scale={[1, 1.2, 0.5]} castShadow receiveShadow>
+          <sphereGeometry args={[0.04, 16, 16]} />
+          {runnerSuitMat}
+        </mesh>
+
+        <mesh position={[-0.03, -0.18, 0.08]} scale={[1, 1.2, 0.5]} castShadow receiveShadow>
+          <sphereGeometry args={[0.035, 16, 16]} />
+          {runnerSuitMat}
+        </mesh>
+        <mesh position={[0.03, -0.18, 0.08]} scale={[1, 1.2, 0.5]} castShadow receiveShadow>
+          <sphereGeometry args={[0.035, 16, 16]} />
+          {runnerSuitMat}
+        </mesh>
+
+        {/* Lats (Back muscles) */}
+        <mesh position={[-0.12, 0.02, -0.06]} scale={[0.8, 1.5, 0.5]} castShadow receiveShadow>
+          <sphereGeometry args={[0.1, 16, 16]} />
+          {runnerSuitMat}
+        </mesh>
+        <mesh position={[0.12, 0.02, -0.06]} scale={[0.8, 1.5, 0.5]} castShadow receiveShadow>
+          <sphereGeometry args={[0.1, 16, 16]} />
+          {runnerSuitMat}
         </mesh>
       </group>
 
-      <group ref={leftArmRef} position={[-0.35, 0.0, 0]}>
-        <mesh castShadow receiveShadow position={[0, 0, 0]}>
-          <sphereGeometry args={[0.13, 16, 16]} />
-          {shirtMat}
+      {/* Baggy Pants/Kama */}
+      <group position={[0, -0.38, 0]}>
+        <mesh scale={[1, 0.8, 0.8]} castShadow receiveShadow>
+          <sphereGeometry args={[0.17, 32, 16]} />
+          {runnerSuitMat}
         </mesh>
-        <mesh castShadow receiveShadow position={[0, -0.2, 0]}>
-          <capsuleGeometry args={[0.1, 0.25, 4, 16]} />
-          {shirtMat}
+        {/* Belt */}
+        <mesh position={[0, 0.15, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.15, 0.15, 0.08, 16]} />
+          <meshStandardMaterial color="#111" roughness={0.8} />
         </mesh>
-        <group ref={leftLowerArmRef} position={[0, -0.4, 0]}>
-          <mesh castShadow receiveShadow position={[0, -0.2, 0]}>
-            <capsuleGeometry args={[0.08, 0.3, 4, 16]} />
-            {skinMat}
+        <mesh position={[0, 0.15, 0.14]} rotation={[Math.PI/2, 0, 0]} castShadow receiveShadow>
+          <torusGeometry args={[0.03, 0.01, 8, 16]} />
+          {runnerGlowMat}
+        </mesh>
+
+        {/* Glutes */}
+        <mesh position={[-0.08, 0, -0.12]} scale={[1, 1, 0.8]} castShadow receiveShadow>
+          <sphereGeometry args={[0.1, 16, 16]} />
+          {runnerSuitMat}
+        </mesh>
+        <mesh position={[0.08, 0, -0.12]} scale={[1, 1, 0.8]} castShadow receiveShadow>
+          <sphereGeometry args={[0.1, 16, 16]} />
+          {runnerSuitMat}
+        </mesh>
+        
+        {/* Kama (Skirt Flaps) */}
+        <mesh position={[-0.12, -0.15, 0]} rotation={[0, 0, -0.2]} castShadow receiveShadow>
+          <boxGeometry args={[0.05, 0.3, 0.25]} />
+          {runnerSuitMat}
+        </mesh>
+        <mesh position={[0.12, -0.15, 0]} rotation={[0, 0, 0.2]} castShadow receiveShadow>
+          <boxGeometry args={[0.05, 0.3, 0.25]} />
+          {runnerSuitMat}
+        </mesh>
+      </group>
+
+      {/* ===== HEAD & NECK ===== */}
+      <group ref={headRef} position={[0, 0.28, 0]}>
+        {/* Neck */}
+        <mesh position={[0, -0.12, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.06, 0.08, 0.15, 16]} />
+          {runnerSkinMat}
+        </mesh>
+        
+        {/* Thick Scarf */}
+        <mesh position={[0, -0.08, 0]} scale={[1, 0.7, 1]} castShadow receiveShadow>
+          <torusGeometry args={[0.11, 0.06, 16, 32]} />
+          <meshStandardMaterial color="#1a1a1a" roughness={1.0} />
+        </mesh>
+
+        {/* Mask */}
+        <mesh position={[0, -0.03, 0.03]} scale={[1, 0.8, 1.1]} castShadow receiveShadow>
+          <sphereGeometry args={[0.105, 16, 16]} />
+          <meshStandardMaterial color="#111" roughness={0.9} />
+        </mesh>
+
+        {/* Jaw/Chin (Covered by mask) */}
+        <mesh position={[0, -0.05, 0.03]} scale={[1, 0.8, 1.2]} castShadow receiveShadow>
+          <sphereGeometry args={[0.1, 16, 16]} />
+          {runnerSkinMat}
+        </mesh>
+        
+        {/* Skull */}
+        <mesh position={[0, 0.02, 0]} scale={[1, 1.1, 1]} castShadow receiveShadow>
+          <sphereGeometry args={[0.11, 32, 32]} />
+          {runnerSkinMat}
+        </mesh>
+        
+        {/* Eyes (Fierce human eyes) */}
+        <mesh position={[-0.04, 0.01, 0.11]} rotation={[0, 0.2, Math.PI/2 + 0.1]}>
+          <capsuleGeometry args={[0.008, 0.02, 8, 8]} />
+          <meshStandardMaterial color="#fff" emissive="#fff" emissiveIntensity={0.5} />
+        </mesh>
+        <mesh position={[0.04, 0.01, 0.11]} rotation={[0, -0.2, Math.PI/2 - 0.1]}>
+          <capsuleGeometry args={[0.008, 0.02, 8, 8]} />
+          <meshStandardMaterial color="#fff" emissive="#fff" emissiveIntensity={0.5} />
+        </mesh>
+
+        {hair}
+      </group>
+
+      {/* ===== LEFT ARM ===== */}
+      <group ref={leftArmRef} position={[-0.24, 0.12, 0]}>
+        {/* Shoulder (Deltoid - Suit) */}
+        <mesh position={[-0.03, -0.02, 0]} scale={[1.2, 1.5, 1.2]} castShadow receiveShadow>
+          <sphereGeometry args={[0.08, 16, 16]} />
+          {runnerSuitMat}
+        </mesh>
+        {/* Shoulder Pad */}
+        <mesh position={[-0.05, 0.02, 0]} rotation={[0, 0, 0.4]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.07, 0.07, 0.05, 16]} />
+          <meshStandardMaterial color="#222" roughness={0.8} />
+        </mesh>
+        
+        {/* Bicep (Front - Bare Skin) */}
+        <mesh position={[-0.02, -0.15, 0.03]} scale={[1, 1.6, 1]} castShadow receiveShadow>
+          <sphereGeometry args={[0.05, 16, 16]} />
+          {runnerSkinMat}
+        </mesh>
+        
+        {/* Tricep (Back - Bare Skin) */}
+        <mesh position={[-0.02, -0.14, -0.03]} scale={[0.8, 1.8, 1.2]} castShadow receiveShadow>
+          <sphereGeometry args={[0.05, 16, 16]} />
+          {runnerSkinMat}
+        </mesh>
+
+        <group ref={leftLowerArmRef} position={[0, -0.3, 0]}>
+          {/* Elbow Joint (Skin) */}
+          <mesh position={[-0.02, 0, -0.02]} scale={[1, 1, 1]} castShadow receiveShadow>
+            <sphereGeometry args={[0.04, 16, 16]} />
+            {runnerSkinMat}
           </mesh>
-          <mesh castShadow receiveShadow position={[0, -0.4, 0]}>
-            <sphereGeometry args={[0.09, 16, 16]} />
-            {skinMat}
+          
+          {/* Gauntlet Base */}
+          <mesh position={[-0.02, -0.14, 0]} castShadow receiveShadow>
+            <cylinderGeometry args={[0.05, 0.04, 0.28, 16]} />
+            <meshStandardMaterial color="#151515" roughness={0.7} />
+          </mesh>
+          {/* Glowing Ring */}
+          <mesh position={[-0.02, -0.14, 0]} castShadow receiveShadow>
+            <torusGeometry args={[0.052, 0.008, 8, 16]} />
+            {runnerGlowMat}
+          </mesh>
+
+          {/* Hand (Glove) */}
+          <mesh position={[-0.02, -0.32, 0]} scale={[1, 1.2, 0.5]} castShadow receiveShadow>
+            <sphereGeometry args={[0.05, 16, 16]} />
+            <meshStandardMaterial color="#111" />
           </mesh>
         </group>
       </group>
 
-      <group ref={rightArmRef} position={[0.35, 0.0, 0]}>
-        <mesh castShadow receiveShadow position={[0, 0, 0]}>
-          <sphereGeometry args={[0.13, 16, 16]} />
-          {shirtMat}
+      {/* ===== RIGHT ARM ===== */}
+      <group ref={rightArmRef} position={[0.24, 0.12, 0]}>
+        {/* Shoulder (Deltoid - Suit) */}
+        <mesh position={[0.03, -0.02, 0]} scale={[1.2, 1.5, 1.2]} castShadow receiveShadow>
+          <sphereGeometry args={[0.08, 16, 16]} />
+          {runnerSuitMat}
         </mesh>
-        <mesh castShadow receiveShadow position={[0, -0.2, 0]}>
-          <capsuleGeometry args={[0.1, 0.25, 4, 16]} />
-          {shirtMat}
+        {/* Shoulder Pad */}
+        <mesh position={[0.05, 0.02, 0]} rotation={[0, 0, -0.4]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.07, 0.07, 0.05, 16]} />
+          <meshStandardMaterial color="#222" roughness={0.8} />
         </mesh>
-        <group ref={rightLowerArmRef} position={[0, -0.4, 0]}>
-          <mesh castShadow receiveShadow position={[0, -0.2, 0]}>
-            <capsuleGeometry args={[0.08, 0.3, 4, 16]} />
-            {skinMat}
+        
+        {/* Bicep (Front - Bare Skin) */}
+        <mesh position={[0.02, -0.15, 0.03]} scale={[1, 1.6, 1]} castShadow receiveShadow>
+          <sphereGeometry args={[0.05, 16, 16]} />
+          {runnerSkinMat}
+        </mesh>
+        
+        {/* Tricep (Back - Bare Skin) */}
+        <mesh position={[0.02, -0.14, -0.03]} scale={[0.8, 1.8, 1.2]} castShadow receiveShadow>
+          <sphereGeometry args={[0.05, 16, 16]} />
+          {runnerSkinMat}
+        </mesh>
+
+        <group ref={rightLowerArmRef} position={[0, -0.3, 0]}>
+          {/* Elbow Joint */}
+          <mesh position={[0.02, 0, -0.02]} scale={[1, 1, 1]} castShadow receiveShadow>
+            <sphereGeometry args={[0.04, 16, 16]} />
+            {runnerSkinMat}
           </mesh>
-          <mesh castShadow receiveShadow position={[0, -0.4, 0]}>
-            <sphereGeometry args={[0.09, 16, 16]} />
-            {skinMat}
+          
+          {/* Gauntlet Base */}
+          <mesh position={[0.02, -0.14, 0]} castShadow receiveShadow>
+            <cylinderGeometry args={[0.05, 0.04, 0.28, 16]} />
+            <meshStandardMaterial color="#151515" roughness={0.7} />
+          </mesh>
+          {/* Glowing Ring */}
+          <mesh position={[0.02, -0.14, 0]} castShadow receiveShadow>
+            <torusGeometry args={[0.052, 0.008, 8, 16]} />
+            {runnerGlowMat}
+          </mesh>
+
+          {/* Hand (Glove) */}
+          <mesh position={[0.02, -0.32, 0]} scale={[1, 1.2, 0.5]} castShadow receiveShadow>
+            <sphereGeometry args={[0.05, 16, 16]} />
+            <meshStandardMaterial color="#111" />
           </mesh>
         </group>
       </group>
 
-      <group position={[0, -0.65, 0]}>
-        <mesh
-          castShadow
-          receiveShadow
-          position={[0, 0, 0]}
-          rotation={[0, 0, Math.PI / 2]}
-        >
-          <capsuleGeometry args={[0.2, 0.2, 4, 16]} />
-          {pantMat}
-        </mesh>
-
-        <group ref={leftLegRef} position={[-0.18, -0.05, 0]}>
-          <mesh castShadow receiveShadow position={[0, -0.2, 0]}>
-            <capsuleGeometry args={[0.12, 0.3, 4, 16]} />
-            {pantMat}
+      {/* ===== LEGS ===== */}
+      <group position={[0, -0.4, 0]}>
+        {/* LEFT LEG */}
+        <group ref={leftLegRef} position={[-0.12, 0, 0]}>
+          {/* Thigh Base (Pants) */}
+          <mesh position={[0, -0.1, 0]} castShadow receiveShadow>
+            <cylinderGeometry args={[0.12, 0.1, 0.15, 16]} />
+            {runnerSuitMat}
           </mesh>
+          
+          {/* Quadricep (Pants) */}
+          <mesh position={[0, -0.22, 0.03]} scale={[1, 1.8, 1.2]} castShadow receiveShadow>
+            <sphereGeometry args={[0.08, 16, 16]} />
+            {runnerSuitMat}
+          </mesh>
+          
+          {/* Hamstring (Pants) */}
+          <mesh position={[0, -0.22, -0.02]} scale={[0.9, 1.7, 1]} castShadow receiveShadow>
+            <sphereGeometry args={[0.08, 16, 16]} />
+            {runnerSuitMat}
+          </mesh>
+
           <group ref={leftLowerLegRef} position={[0, -0.45, 0]}>
-            <mesh castShadow receiveShadow position={[0, -0.2, 0]}>
-              <capsuleGeometry args={[0.1, 0.3, 4, 16]} />
-              {skinMat}
+            {/* Knee Pad */}
+            <mesh position={[0, 0.02, 0.05]} scale={[1, 1, 0.5]} castShadow receiveShadow>
+              <sphereGeometry args={[0.06, 16, 16]} />
+              <meshStandardMaterial color="#111" roughness={0.7} />
             </mesh>
-            <mesh
-              castShadow
-              receiveShadow
-              position={[0, -0.45, 0.08]}
-              rotation={[Math.PI / 2, 0, 0]}
-            >
-              <capsuleGeometry args={[0.11, 0.18, 4, 16]} />
-              {shoeMat}
+            
+            {/* Calf / Boot Top */}
+            <mesh position={[0, -0.12, -0.04]} scale={[1, 1.5, 1.2]} castShadow receiveShadow>
+              <sphereGeometry args={[0.07, 16, 16]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+            </mesh>
+            
+            {/* Shin/Lower Leg Base (Boot) */}
+            <mesh position={[0, -0.18, 0]} castShadow receiveShadow>
+              <cylinderGeometry args={[0.06, 0.05, 0.35, 16]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+            </mesh>
+            {/* Boot Glow Ring */}
+            <mesh position={[0, -0.28, 0]} castShadow receiveShadow>
+              <torusGeometry args={[0.055, 0.01, 8, 16]} />
+              {runnerGlowMat}
+            </mesh>
+
+            {/* Foot */}
+            <mesh position={[0, -0.4, 0.04]} scale={[1, 0.5, 1.5]} castShadow receiveShadow>
+              <sphereGeometry args={[0.065, 16, 16]} />
+              <meshStandardMaterial color="#151515" roughness={0.9} />
+            </mesh>
+            <mesh position={[0, -0.42, 0.04]} scale={[1, 0.1, 1.5]} castShadow receiveShadow>
+              <boxGeometry args={[0.13, 0.2, 0.13]} />
+              {runnerGlowMat}
             </mesh>
           </group>
         </group>
 
-        <group ref={rightLegRef} position={[0.18, -0.05, 0]}>
-          <mesh castShadow receiveShadow position={[0, -0.2, 0]}>
-            <capsuleGeometry args={[0.12, 0.3, 4, 16]} />
-            {pantMat}
+        {/* RIGHT LEG */}
+        <group ref={rightLegRef} position={[0.12, 0, 0]}>
+          {/* Thigh Base (Pants) */}
+          <mesh position={[0, -0.1, 0]} castShadow receiveShadow>
+            <cylinderGeometry args={[0.12, 0.1, 0.15, 16]} />
+            {runnerSuitMat}
           </mesh>
+          
+          {/* Quadricep (Pants) */}
+          <mesh position={[0, -0.22, 0.03]} scale={[1, 1.8, 1.2]} castShadow receiveShadow>
+            <sphereGeometry args={[0.08, 16, 16]} />
+            {runnerSuitMat}
+          </mesh>
+          
+          {/* Hamstring (Pants) */}
+          <mesh position={[0, -0.22, -0.02]} scale={[0.9, 1.7, 1]} castShadow receiveShadow>
+            <sphereGeometry args={[0.08, 16, 16]} />
+            {runnerSuitMat}
+          </mesh>
+
           <group ref={rightLowerLegRef} position={[0, -0.45, 0]}>
-            <mesh castShadow receiveShadow position={[0, -0.2, 0]}>
-              <capsuleGeometry args={[0.1, 0.3, 4, 16]} />
-              {skinMat}
+            {/* Knee Pad */}
+            <mesh position={[0, 0.02, 0.05]} scale={[1, 1, 0.5]} castShadow receiveShadow>
+              <sphereGeometry args={[0.06, 16, 16]} />
+              <meshStandardMaterial color="#111" roughness={0.7} />
             </mesh>
-            <mesh
-              castShadow
-              receiveShadow
-              position={[0, -0.45, 0.08]}
-              rotation={[Math.PI / 2, 0, 0]}
-            >
-              <capsuleGeometry args={[0.11, 0.18, 4, 16]} />
-              {shoeMat}
+            
+            {/* Calf / Boot Top */}
+            <mesh position={[0, -0.12, -0.04]} scale={[1, 1.5, 1.2]} castShadow receiveShadow>
+              <sphereGeometry args={[0.07, 16, 16]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+            </mesh>
+            
+            {/* Shin/Lower Leg Base (Boot) */}
+            <mesh position={[0, -0.18, 0]} castShadow receiveShadow>
+              <cylinderGeometry args={[0.06, 0.05, 0.35, 16]} />
+              <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+            </mesh>
+            {/* Boot Glow Ring */}
+            <mesh position={[0, -0.28, 0]} castShadow receiveShadow>
+              <torusGeometry args={[0.055, 0.01, 8, 16]} />
+              {runnerGlowMat}
+            </mesh>
+
+            {/* Foot */}
+            <mesh position={[0, -0.4, 0.04]} scale={[1, 0.5, 1.5]} castShadow receiveShadow>
+              <sphereGeometry args={[0.065, 16, 16]} />
+              <meshStandardMaterial color="#151515" roughness={0.9} />
+            </mesh>
+            <mesh position={[0, -0.42, 0.04]} scale={[1, 0.1, 1.5]} castShadow receiveShadow>
+              <boxGeometry args={[0.13, 0.2, 0.13]} />
+              {runnerGlowMat}
             </mesh>
           </group>
         </group>

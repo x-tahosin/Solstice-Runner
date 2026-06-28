@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { Player } from './components/Player';
 import { World } from './components/World';
 import { UI } from './components/UI';
 import { state } from './game';
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import * as THREE from 'three';
 import { Sparkles } from '@react-three/drei';
 import { EnvironmentSystem } from './components/EnvironmentSystem';
@@ -19,9 +19,32 @@ import { audioManager } from './audio';
 let touchStartX = 0;
 let touchStartY = 0;
 
+function CameraAdjuster() {
+  const { camera, size } = useThree();
+  
+  useEffect(() => {
+    const aspect = size.width / size.height;
+    if (camera instanceof THREE.PerspectiveCamera) {
+      // Increase FOV on narrow screens so side lanes remain visible
+      if (aspect < 1) {
+        camera.fov = 85; 
+      } else {
+        camera.fov = 60;
+      }
+      camera.updateProjectionMatrix();
+    }
+  }, [camera, size]);
+  
+  return null;
+}
+
 export default function App() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      
       // Prevent default scrolling for arrows/space
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
         e.preventDefault();
@@ -72,6 +95,7 @@ export default function App() {
 
     const handleTouchStart = (e: TouchEvent) => {
       if (state.status !== 'PLAYING') return;
+      e.preventDefault();
       touchStartX = e.changedTouches[0].clientX;
       touchStartY = e.changedTouches[0].clientY;
     };
@@ -84,6 +108,7 @@ export default function App() {
 
     const handleTouchEnd = (e: TouchEvent) => {
       if (state.status !== 'PLAYING') return;
+      e.preventDefault();
 
       const touchEndX = e.changedTouches[0].clientX;
       const touchEndY = e.changedTouches[0].clientY;
@@ -91,7 +116,7 @@ export default function App() {
       const dx = touchEndX - touchStartX;
       const dy = touchEndY - touchStartY;
 
-      const minSwipeDistance = 30;
+      const minSwipeDistance = 20;
 
       if (Math.abs(dx) > Math.abs(dy)) {
         // Horizontal swipe
@@ -136,16 +161,17 @@ export default function App() {
       }
     };
 
+    // Use capture phase so touch events fire BEFORE R3F Canvas consumes them
     window.addEventListener('keydown', handleKeyDown, { passive: false });
-    window.addEventListener('touchstart', handleTouchStart, { passive: true });
-    window.addEventListener('touchmove', handleTouchMove, { passive: false });
-    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+    window.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: false, capture: true });
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchstart', handleTouchStart, { capture: true });
+      window.removeEventListener('touchmove', handleTouchMove, { capture: true });
+      window.removeEventListener('touchend', handleTouchEnd, { capture: true });
     };
   }, []);
 
@@ -154,12 +180,16 @@ export default function App() {
       <Canvas 
         shadows 
         camera={{ position: [0, 4, 8], fov: 60, rotation: [-0.2, 0, 0] }}
-        gl={{ antialias: true }}
+        gl={{ antialias: true, powerPreference: "high-performance" }}
+        dpr={[1, 1.5]}
       >
-        <EnvironmentSystem />
+        <Suspense fallback={null}>
+          <CameraAdjuster />
+          <EnvironmentSystem />
 
-        <Player />
-        <World />
+          <Player />
+          <World />
+        </Suspense>
       </Canvas>
 
       <UI />

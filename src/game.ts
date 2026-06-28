@@ -20,6 +20,7 @@ export const state = {
   distance: 0,
   doubleJumped: false, // For Void Walker double jump
   level: 1,
+  dayTime: 0.0, // 0.0 to 1.0 cycle
 };
 
 export function getActiveMap() {
@@ -77,6 +78,7 @@ export function resetGame() {
   state.yVel = 0;
   state.isSliding = false;
   state.slideTimer = 0;
+  state.dayTime = 0.0;
   
   // Starting Speed Skill
   const speedSkill = store.getSkillLevel('s2');
@@ -134,6 +136,10 @@ export function updateWorld(delta: number) {
   // 2. Move World 
   const currentSpeed = isDemo ? 30 : state.speed;
   state.distance += currentSpeed * delta;
+  
+  // Advance time of day slowly (e.g. 1 full cycle every 60 seconds)
+  state.dayTime += delta / 60.0;
+  if (state.dayTime > 1.0) state.dayTime = 0.0;
   
   if (!isDemo) {
       // Level up every 200 units
