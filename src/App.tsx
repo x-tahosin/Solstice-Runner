@@ -23,16 +23,19 @@ function CameraAdjuster() {
   const { camera, size } = useThree();
   
   useEffect(() => {
-    const aspect = size.width / size.height;
-    if (camera instanceof THREE.PerspectiveCamera) {
-      // Increase FOV on narrow screens so side lanes remain visible
-      if (aspect < 1) {
-        camera.fov = 85; 
-      } else {
-        camera.fov = 60;
-      }
-      camera.updateProjectionMatrix();
-    }
+    const handleStoreUpdate = () => {
+       const settings = store.globalSettings;
+       if (camera instanceof THREE.PerspectiveCamera) {
+          const aspect = size.width / size.height;
+          camera.fov = aspect < 1 ? Math.max(85, settings.fov) : settings.fov;
+          camera.position.set(0, settings.cameraY, settings.cameraZ);
+          camera.updateProjectionMatrix();
+       }
+    };
+    
+    handleStoreUpdate();
+    window.addEventListener("store-update", handleStoreUpdate);
+    return () => window.removeEventListener("store-update", handleStoreUpdate);
   }, [camera, size]);
   
   return null;
@@ -176,7 +179,7 @@ export default function App() {
   }, []);
 
   return (
-    <div className="w-screen h-screen overflow-hidden bg-zinc-950 font-sans select-none relative touch-none">
+    <div className="w-screen h-[100dvh] overflow-hidden bg-zinc-950 font-sans select-none relative touch-none">
       <Canvas 
         shadows 
         camera={{ position: [0, 4, 8], fov: 60, rotation: [-0.2, 0, 0] }}

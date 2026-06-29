@@ -39,11 +39,10 @@ export const BASE_ITEMS = {
     },
   ],
   maps: [
-    { id: "m1", name: "Solstice", cost: 0, desc: "Forest Trail" },
-    { id: "m2", name: "Midnight", cost: 150, desc: "Eternal starlight" },
-    { id: "m3", name: "Neon Void", cost: 300, desc: "Synth wave simulation" },
-    { id: "m4", name: "Graveyard", cost: 400, desc: "Haunted Vampire Lair" },
-    { id: "m5", name: "Multi Map", cost: 600, desc: "Shifts reality every 150m" },
+    { id: "m2", name: "Solstice", cost: 0, desc: "The Longest Day" },
+    { id: "m1", name: "Greenwood", cost: 0, desc: "Forest Trail" },
+    { id: "m3", name: "Graveyard", cost: 100, desc: "Haunted Vampire Lair" },
+    { id: "m4", name: "Multi Map", cost: 100, desc: "Shifts reality every 150m" },
   ],
   skills: [
     {
@@ -98,6 +97,22 @@ export function useGameStore() {
 }
 
 export const store = {
+  globalSettings: {
+    speedModifier: 1.0,
+    gravity: 80,
+    jumpVelocity: 15,
+    laneWidth: 2.5,
+    cameraY: 4,
+    cameraZ: 8,
+    fov: 60,
+    coinSpawnRate: 0.2,
+    obstacleSpawnRate: 0.4
+  },
+  applySettingsPatch(patch: any) {
+    Object.assign(this.globalSettings, patch);
+    emit();
+  },
+
   get genaiKey() {
     return localStorage.getItem("genaiKey") || "";
   },
@@ -135,7 +150,6 @@ export const store = {
   },
   set fireballs(v) {
     localStorage.setItem("fireballs", v.toString());
-    emit();
   },
 
   get highscore() {
@@ -143,7 +157,6 @@ export const store = {
   },
   set highscore(v) {
     localStorage.setItem("highscore", v.toString());
-    emit();
   },
 
   get unlockedChars(): string[] {
@@ -158,7 +171,7 @@ export const store = {
   },
 
   get unlockedMaps(): string[] {
-    return JSON.parse(localStorage.getItem("unlockedMaps") || '["m1"]');
+    return JSON.parse(localStorage.getItem("unlockedMaps") || '["m1", "m2"]');
   },
   unlockMap(id: string) {
     localStorage.setItem(
@@ -177,7 +190,7 @@ export const store = {
   },
 
   get selMap() {
-    return localStorage.getItem("selMap") || "m1";
+    return localStorage.getItem("selMap") || "m2";
   },
   set selMap(v) {
     localStorage.setItem("selMap", v);

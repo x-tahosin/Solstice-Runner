@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { state, resetGame } from '../game';
+import { state, resetGame, getActiveMap } from '../game';
 import { Flame, Target, Trophy, User, Map as MapIcon, ArrowLeft, Cloud, TreePine, Moon, Stars, Cpu, Ghost, Skull, Shuffle, Sparkles, Key } from 'lucide-react';
 import { useGameStore, ITEMS } from '../store';
 
@@ -10,11 +10,12 @@ export function UI() {
   const [level, setLevel] = useState(state.level);
   const store = useGameStore();
 
-  const [forgeType, setForgeType] = useState<'chars'|'maps'|'skills'>('chars');
+  const [forgeType, setForgeType] = useState<'chars'|'maps'|'skills'|'controls'>('chars');
   const [forgePrompt, setForgePrompt] = useState('');
   const [apiKey, setApiKey] = useState(store.genaiKey);
   const [isForging, setIsForging] = useState(false);
   const [forgeResult, setForgeResult] = useState('');
+  const [warpAlpha, setWarpAlpha] = useState(0);
 
   const handleForge = async () => {
       if(!apiKey || !forgePrompt) {
@@ -25,10 +26,13 @@ export function UI() {
       setForgeResult("Forging in progress...");
       store.genaiKey = apiKey;
 
+      const partsSchema = `Array of objects: { "shape": "box"|"sphere"|"cylinder"|"cone"|"torus"|"dodecahedron", "color": "hex string", "pos": [x,y,z], "scale": [x,y,z], "rot": [x,y,z], "material"?: "standard"|"glow"|"wireframe", "anim"?: "spinY"|"spinX"|"float"|"pulse"|"none" }`;
+
       const systemInstruction = 
-        forgeType === 'chars' ? "You are a game content generator. Generate a JSON character. Output ONLY raw JSON, no markdown. Schema: { id: string, name: string, desc: string, cost: number, color: string }. id must start with 'gen-c-'. color must be a valid hex code." :
-        forgeType === 'maps' ? "You are a game content generator. Generate a JSON map. Output ONLY raw JSON, no markdown. Schema: { id: string, name: string, desc: string, cost: number, fogColor: string, ambientColor: string, dirColor: string }. id must start with 'gen-m-'. Colors must be valid hex code." :
-        "You are a game content generator. Generate a JSON skill. Output ONLY raw JSON, no markdown. Schema: { id: string, name: string, desc: string, baseCost: number, maxLevel: number }. id must start with 'gen-s-'.";
+        forgeType === 'controls' ? `You are a game engine controller. The user wants to modify the game mechanics. Return ONLY a raw JSON patch for the GLOBAL_SETTINGS object, no markdown. Schema: { "speedModifier"?: number, "gravity"?: number, "jumpVelocity"?: number, "laneWidth"?: number, "cameraY"?: number, "cameraZ"?: number, "fov"?: number, "coinSpawnRate"?: number, "obstacleSpawnRate"?: number }. Example: if they want fast speed, low gravity, zoomed out, return { "speedModifier": 2, "gravity": 20, "cameraY": 10, "cameraZ": 20 }. Only include fields that the user implicitly or explicitly wants to change.` :
+        forgeType === 'chars' ? `You are an expert game 3D character designer. Generate a JSON character. Output ONLY raw JSON, no markdown. Schema: { "id": "gen-c-...", "name": string, "desc": string, "cost": number, "parts": ${partsSchema} }. IMPORTANT: Create a highly detailed, visually stunning, multi-part composed 3D character. Be incredibly creative with scales, positions, rotations, glow materials, and animations. Use 5-15 parts. If the user does not explicitly specify a cost/price, set cost to 50.` :
+        forgeType === 'maps' ? `You are an expert game environment designer. Generate a JSON map. Output ONLY raw JSON, no markdown. Schema: { "id": "gen-m-...", "name": string, "desc": string, "cost": number, "fogColor": string, "ambientColor": string, "dirColor": string, "decorations": ${partsSchema} }. IMPORTANT: Create a deeply atmospheric map. "decorations" are huge sky objects, background buildings, or terrain features that set the mood. If the user does not explicitly specify a cost/price, set cost to 50.` :
+        "You are a game content generator. Generate a JSON skill. Output ONLY raw JSON, no markdown. Schema: { id: string, name: string, desc: string, baseCost: number, maxLevel: number }. id must start with 'gen-s-'. If the user does not explicitly specify a cost/price, set baseCost to 50.";
 
       try {
           const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
@@ -49,9 +53,22 @@ export function UI() {
               parsed = JSON.parse(text);
           } catch(e) { throw new Error("Failed to parse JSON response"); }
 
-          if(forgeType === 'chars') store.addCustomChar(parsed);
-          else if(forgeType === 'maps') store.addCustomMap(parsed);
-          else if(forgeType === 'skills') store.addCustomSkill(parsed);
+          if (forgeType === 'controls') {
+              store.applySettingsPatch(parsed);
+              setForgeResult(`Game physics updated successfully! Hit Play to see the changes.`);
+              setForgePrompt('');
+              setIsForging(false);
+              return;
+          } else if (forgeType === 'chars') {
+              if (parsed.cost === undefined) parsed.cost = 50;
+              store.addCustomChar(parsed);
+          } else if (forgeType === 'maps') {
+              if (parsed.cost === undefined) parsed.cost = 50;
+              store.addCustomMap(parsed);
+          } else if (forgeType === 'skills') {
+              if (parsed.baseCost === undefined) parsed.baseCost = 50;
+              store.addCustomSkill(parsed);
+          }
 
           setForgeResult(`Successfully forged: ${parsed.name}! Go to the Select screen to buy it.`);
           setForgePrompt('');
@@ -64,11 +81,23 @@ export function UI() {
 
   useEffect(() => {
     let animationFrameId: number;
+    let prevMap = getActiveMap();
+
     const loop = () => {
       setStatus(prev => state.status !== prev ? state.status : prev);
       setScore(prev => state.score !== prev ? state.score : prev);
       setCoins(prev => state.coins !== prev ? state.coins : prev);
       setLevel(prev => state.level !== prev ? state.level : prev);
+
+      const currentMap = getActiveMap();
+      if (currentMap !== prevMap && state.status === 'PLAYING') {
+          prevMap = currentMap;
+          setWarpAlpha(1);
+          setTimeout(() => setWarpAlpha(0), 100);
+      } else if (state.status !== 'PLAYING') {
+          prevMap = currentMap;
+      }
+
       animationFrameId = requestAnimationFrame(loop);
     };
     loop();
@@ -106,6 +135,10 @@ export function UI() {
 
   return (
     <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 overflow-hidden">
+      <div 
+         className="absolute inset-0 pointer-events-none bg-white z-[999] transition-opacity duration-[1500ms] ease-out" 
+         style={{ opacity: warpAlpha }} 
+      />
       
       {status === 'PLAYING' && (
         <div className="flex justify-between items-start pt-2 px-4 shadow-[inset_0_50px_50px_-50px_rgba(0,0,0,0.9)] text-amber-50">
@@ -129,7 +162,7 @@ export function UI() {
       )}
 
       {status === 'MENU' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center py-6 pointer-events-auto overflow-hidden animate-in fade-in duration-1000">
+        <div className="absolute inset-0 flex flex-col items-center justify-center py-6 pointer-events-auto overflow-y-auto animate-in fade-in duration-1000">
           <div className="absolute inset-0 bg-zinc-950/20 -z-20" />
           <div className="absolute inset-0 -z-10 mix-blend-overlay opacity-60 pointer-events-none fade-in animate-in duration-[3000ms]">
              <div className="absolute top-1/4 left-1/4 w-[50vw] h-[50vw] bg-orange-600/10 rounded-full mix-blend-screen animate-[spin_10s_ease-in-out_infinite_alternate]" />
@@ -138,7 +171,7 @@ export function UI() {
           <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-black/80 -z-10" />
 
           {/* Top Bar - Lifetime Stats */}
-          <div className="w-full mb-auto mt-4 flex justify-between px-6">
+          <div className="w-full mb-auto flex justify-between px-6">
                <div className="flex flex-col items-start bg-black/40 px-6 py-3 rounded-full border border-orange-500/20">
                    <p className="text-orange-200/50 uppercase text-xs font-bold tracking-widest">Highscore</p>
                    <p className="flex items-center gap-2 font-mono text-2xl font-black text-white"><Trophy size={18} className="text-yellow-400"/> {store.highscore}m</p>
@@ -154,7 +187,7 @@ export function UI() {
             
             <h1 className="relative font-black tracking-tighter italic text-center leading-tight mb-2 animate-in slide-in-from-bottom-20 zoom-in-90 duration-1000 ease-out fill-mode-both">
               <span className="block text-7xl md:text-9xl text-transparent bg-clip-text bg-gradient-to-b from-orange-300 via-orange-500 to-red-600 drop-shadow-[0_0_40px_rgba(234,88,12,0.4)] px-4">SOLSTICE</span>
-              <span className="block text-5xl md:text-7xl text-white outline-4 outline-black drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)] pb-4 mt-2">RUNNER</span>
+              <span className="block text-5xl md:text-7xl text-white drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)] pb-4 mt-2">RUNNER</span>
             </h1>
             
             <p className="items-center flex gap-4 text-orange-200 font-bold tracking-[0.5em] uppercase text-sm md:text-lg animate-in slide-in-from-bottom-5 duration-1000 delay-[400ms] fill-mode-both mb-10 drop-shadow-[0_2px_10px_rgba(0,0,0,1)]">
@@ -177,7 +210,7 @@ export function UI() {
             </button>
           </div>
 
-          <div className="flex flex-wrap justify-center gap-4 mt-auto mb-8 animate-in slide-in-from-bottom-10 delay-1000 fill-mode-both duration-1000">
+          <div className="flex flex-wrap justify-center gap-4 mt-8 mb-4 animate-in slide-in-from-bottom-10 delay-1000 fill-mode-both duration-1000">
              <button onClick={() => { state.status = 'CHOOSE_CHARACTER'; setStatus('CHOOSE_CHARACTER'); }} className="flex items-center gap-2 bg-zinc-900/80 hover:bg-zinc-700 text-zinc-300 px-5 py-3 rounded-full font-bold uppercase tracking-widest text-xs sm:text-sm transition-colors border border-zinc-700 hover:border-orange-500/50 shadow-lg">
                  <User size={16} /> Heroes
              </button>
@@ -348,53 +381,14 @@ export function UI() {
                      return (
                          <div key={m.id} className={`w-full max-w-[280px] p-6 rounded-2xl border-2 flex flex-col items-center text-center transition-all shadow-xl ${isSelected ? 'border-orange-500 bg-orange-500/10 scale-105 shadow-[0_0_30px_rgba(249,115,22,0.3)]' : 'border-zinc-800 bg-zinc-900/50 hover:border-zinc-600'}`}>
                              <div className="w-full h-32 rounded-lg mb-4 shadow-inner overflow-hidden relative border border-zinc-700/50 flex items-center justify-center bg-zinc-900 group">
-                                 {m.id === "m1" && (
-                                     <div className="w-full h-full relative bg-sky-600 group-hover:scale-110 transition-transform">
-                                         <div className="absolute bottom-0 w-full h-1/3 bg-green-700" />
-                                         <div className="absolute bottom-1/3 left-6 w-3 h-10 bg-[#5b4033]" />
-                                         <div className="absolute bottom-[calc(33%+10px)] left-2 w-10 h-10 bg-green-800 rounded-full" />
-                                         <div className="absolute bottom-1/3 right-8 w-2 h-8 bg-[#5b4033]" />
-                                         <div className="absolute bottom-[calc(33%+10px)] right-5 w-8 h-8 bg-green-900 rounded-full" />
-                                         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 border-b-[40px] border-b-[#8c6b3e] border-l-[15px] border-l-transparent border-r-[15px] border-r-transparent w-4" />
-                                     </div>
-                                 )}
-                                 {m.id === "m2" && (
-                                     <div className="w-full h-full relative bg-[#0a0a2a] group-hover:scale-110 transition-transform overflow-hidden">
-                                         <div className="absolute inset-0 opacity-50" style={{ backgroundImage: 'radial-gradient(1px 1px at 10px 10px, white, transparent), radial-gradient(1px 1px at 30px 20px, white, transparent), radial-gradient(2px 2px at 50px 40px, white, transparent)', backgroundSize: '70px 70px' }} />
-                                         <div className="absolute top-4 right-4 w-6 h-6 bg-yellow-100 rounded-full drop-shadow-[0_0_10px_white]" />
-                                         <div className="absolute bottom-0 w-full h-1/3 bg-[#0a120a]" />
-                                         <div className="absolute bottom-1/3 left-4 w-2 h-14 bg-[#1a1111]" />
-                                         <div className="absolute bottom-[calc(33%+15px)] left-0 w-10 h-14 bg-[#0a1f10] rounded-t-full" />
-                                         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 border-b-[40px] border-b-[#2a2a35] border-l-[15px] border-l-transparent border-r-[15px] border-r-transparent w-4" />
-                                     </div>
-                                 )}
-                                 {m.id === "m3" && (
-                                     <div className="w-full h-full relative bg-[#0f0f20] group-hover:scale-110 transition-transform">
-                                         <div className="absolute bottom-0 w-full h-1/2 bg-black border-t-2 border-fuchsia-500 overflow-hidden">
-                                             <div className="absolute inset-0 opacity-60" style={{ backgroundImage: 'linear-gradient(transparent 90%, #ff0f 10%), linear-gradient(90deg, transparent 90%, #ff0f 10%)', backgroundSize: '15px 10px, 15px 15px', transform: 'perspective(100px) rotateX(60deg) scale(2)' }} />
-                                         </div>
-                                         <div className="absolute top-4 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full border-2 border-cyan-400 drop-shadow-[0_0_10px_cyan]" />
-                                     </div>
+                                 {["m1", "m2", "m3"].includes(m.id) && (
+                                     <img src={`${import.meta.env.BASE_URL}maps/${m.id}.png`} alt={m.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
                                  )}
                                  {m.id === "m4" && (
-                                     <div className="w-full h-full relative bg-[#15152a] group-hover:scale-110 transition-transform">
-                                         <div className="absolute top-6 left-12 w-6 h-6 bg-zinc-500 rounded-full opacity-50 blur-[1px]" />
-                                         <div className="absolute bottom-0 w-full h-1/3 bg-[#050105]" />
-                                         <div className="absolute bottom-1/3 left-6 w-5 h-8 bg-[#304050] rounded-t-lg border border-zinc-600 flex justify-center pt-1"><div className="w-1 h-3 bg-zinc-700 rounded-sm" /></div>
-                                         <div className="absolute bottom-1/3 right-8 w-4 h-6 bg-[#2a3a4a] rounded-t-lg border border-zinc-600 transform rotate-12" />
-                                         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 border-b-[40px] border-b-[#1a1a25] border-l-[15px] border-l-transparent border-r-[15px] border-r-transparent w-4" />
-                                     </div>
-                                 )}
-                                 {m.id === "m5" && (
-                                     <div className="w-full h-full relative flex group-hover:scale-110 transition-transform">
-                                         <div className="w-1/2 h-full bg-sky-600 relative overflow-hidden border-r-2 border-white/80">
-                                            <div className="absolute bottom-0 w-full h-1/3 bg-[#8c6b3e]" />
-                                            <div className="absolute bottom-1/3 left-4 w-6 h-10 bg-green-800 rounded-full" />
-                                         </div>
-                                         <div className="w-1/2 h-full bg-[#0f0f20] relative overflow-hidden">
-                                            <div className="absolute top-4 right-4 w-6 h-6 rounded-full border border-cyan-400" />
-                                            <div className="absolute bottom-0 w-full h-1/3 bg-black border-t border-fuchsia-500" />
-                                         </div>
+                                     <div className="w-full h-full relative group-hover:scale-110 transition-transform flex">
+                                         <img src={`${import.meta.env.BASE_URL}maps/m1.png`} className="w-1/3 h-full object-cover grayscale-[30%]" />
+                                         <img src={`${import.meta.env.BASE_URL}maps/m2.png`} className="w-1/3 h-full object-cover border-l-2 border-r-2 border-orange-500/50" />
+                                         <img src={`${import.meta.env.BASE_URL}maps/m3.png`} className="w-1/3 h-full object-cover hue-rotate-90" />
                                      </div>
                                  )}
                                  {m.id.startsWith("gen-m") && (
@@ -483,14 +477,17 @@ export function UI() {
                 <p className="text-zinc-400 mb-6 text-sm text-center">Enter your Gemini API key and write a prompt to generate custom game content.</p>
 
                 <div className="mb-6">
-                    <label className="block text-zinc-300 font-bold uppercase tracking-widest text-sm mb-2 flex flex-items-center gap-2"><Key size={14}/> Gemini API Key</label>
+                    <div className="flex justify-between items-center mb-2">
+                        <label className="text-zinc-300 font-bold uppercase tracking-widest text-sm flex items-center gap-2"><Key size={14}/> Gemini API Key</label>
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-orange-400 hover:text-orange-300 underline underline-offset-4 transition-colors">Get Free API Key</a>
+                    </div>
                     <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="AIzaSy..." className="w-full bg-black border border-zinc-700 rounded-lg px-4 py-3 text-white font-mono focus:outline-none focus:border-orange-500 transition-colors" />
                 </div>
 
                 <div className="mb-6">
                     <label className="block text-zinc-300 font-bold uppercase tracking-widest text-sm mb-2">Forge Type</label>
                     <div className="flex bg-black rounded-lg p-1 border border-zinc-700">
-                        {['chars', 'maps', 'skills'].map(t => (
+                        {['chars', 'maps', 'skills', 'controls'].map(t => (
                             <button key={t} onClick={() => setForgeType(t as any)} className={`flex-1 py-2 rounded-md font-bold uppercase tracking-wide text-sm transition-colors ${forgeType === t ? 'bg-orange-600 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}>
                                 {t}
                             </button>
@@ -518,7 +515,7 @@ export function UI() {
 
       {status === 'GAMEOVER' && (
         <div className="absolute inset-0 bg-red-950/80 flex flex-col items-center justify-center pointer-events-auto backdrop-blur-xl animate-in fade-in duration-500">
-          <h1 className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-red-500 to-red-800 tracking-tighter italic mb-8 drop-shadow-[0_5px_15px_rgba(220,38,38,0.5)] animate-in slide-in-from-top-10 duration-700">
+          <h1 className="text-7xl font-black text-transparent bg-clip-text bg-gradient-to-b from-red-500 to-red-800 tracking-tighter italic mb-8 pr-4 drop-shadow-[0_5px_15px_rgba(220,38,38,0.5)] animate-in slide-in-from-top-10 duration-700">
             WASTED
           </h1>
           <div className="flex flex-col items-center gap-4 bg-black/60 p-8 rounded-3xl mb-12 border border-red-900/50 shadow-[0_0_50px_rgba(153,27,27,0.3)] animate-in zoom-in-95 duration-700 delay-150 fill-mode-both hover:-translate-y-2 hover:shadow-[0_0_80px_rgba(220,38,38,0.4)] transition-all">

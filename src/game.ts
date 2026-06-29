@@ -1,4 +1,4 @@
-export const LANE_WIDTH = 2.5;
+export const getLaneWidth = () => store.globalSettings.laneWidth;
 
 import { store, ITEMS } from './store';
 import { audioManager } from './audio';
@@ -24,9 +24,9 @@ export const state = {
 };
 
 export function getActiveMap() {
-  if (store.selMap === "m5") {
-      const order = ["m1", "m2", "m3", "m4"];
-      return order[Math.floor(state.distance / 150) % 4];
+  if (store.selMap === "m4") {
+      const order = ["m1", "m2", "m3"];
+      return order[Math.floor(state.distance / 150) % 3];
   }
   return store.selMap;
 }
@@ -56,11 +56,11 @@ function spawnRow(zPos: number) {
   lanes.sort(() => Math.random() - 0.5);
 
   const r = Math.random();
-  if (r < 0.2) {
+  if (r < store.globalSettings.coinSpawnRate) {
     world.obstacles.push({ id: world.nextId++, type: "COIN", lane: -1, z: zPos });
     world.obstacles.push({ id: world.nextId++, type: "COIN", lane: 0, z: zPos });
     world.obstacles.push({ id: world.nextId++, type: "COIN", lane: 1, z: zPos });
-  } else if (r < 0.6) {
+  } else if (r < store.globalSettings.coinSpawnRate + store.globalSettings.obstacleSpawnRate) {
     world.obstacles.push({ id: world.nextId++, type: randomObstacle(), lane: lanes[0], z: zPos });
     world.obstacles.push({ id: world.nextId++, type: "COIN", lane: lanes[1], z: zPos });
   } else {
@@ -82,7 +82,7 @@ export function resetGame() {
   
   // Starting Speed Skill
   const speedSkill = store.getSkillLevel('s2');
-  state.speed = 20 + (speedSkill * 3); 
+  state.speed = 20 + (speedSkill * 5); 
   
   state.score = 0;
   state.coins = 0;
@@ -110,12 +110,28 @@ function doHit() {
   }
 }
 
+export function doJump() {
+  if (state.status !== "PLAYING" || state.y > 0) return;
+  state.yVel = store.globalSettings.jumpVelocity;
+  state.isSliding = false;
+  state.doubleJumped = false;
+  audioManager.playJump();
+}
+
+export function doDoubleJump() {
+  if (state.status !== "PLAYING" || state.doubleJumped) return;
+  state.yVel = store.globalSettings.jumpVelocity * 0.8;
+  state.isSliding = false;
+  state.doubleJumped = true;
+  audioManager.playJump();
+}
+
 export function updateWorld(delta: number) {
   if (state.status === "GAMEOVER") return;
   const isDemo = state.status !== "PLAYING";
 
   // 1. Move Player
-  state.yVel -= 80 * delta; 
+  state.yVel -= store.globalSettings.gravity * delta; 
   state.y += state.yVel * delta;
   
   if (state.y <= 0) {
@@ -134,7 +150,7 @@ export function updateWorld(delta: number) {
   state.lane += (state.targetLane - state.lane) * 15 * delta;
 
   // 2. Move World 
-  const currentSpeed = isDemo ? 30 : state.speed;
+  const currentSpeed = (isDemo ? 30 : state.speed) * store.globalSettings.speedModifier;
   state.distance += currentSpeed * delta;
   
   // Advance time of day slowly (e.g. 1 full cycle every 60 seconds)
@@ -161,10 +177,10 @@ export function updateWorld(delta: number) {
 
   // Auto magnetizing
   const hasUniversalMagnet = store.getSkillLevel('s3') > 0;
-  const isMagnet = store.selChar === 'c3' || hasUniversalMagnet;
   const magnetRangeSkill = store.getSkillLevel('s1');
+  const isMagnet = store.selChar === 'c3' || hasUniversalMagnet || magnetRangeSkill > 0;
   const magnetZDist = isMagnet ? (10 + (magnetRangeSkill * 5)) : 0;
-  const playerX = state.lane * LANE_WIDTH;
+  const playerX = state.lane * getLaneWidth();
 
   if (isDemo) {
       // Auto dodge
@@ -198,7 +214,7 @@ export function updateWorld(delta: number) {
     const o = world.obstacles[i];
     o.z += currentSpeed * delta; 
 
-    const oX = o.lane * LANE_WIDTH;
+    const oX = o.lane * getLaneWidth();
     const inLane = Math.abs(playerX - oX) < 1.2; 
     const inZ = o.z > -1 && o.z < 1.5; 
     

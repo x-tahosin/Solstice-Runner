@@ -1,8 +1,9 @@
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { state, LANE_WIDTH } from "../game";
+import { state } from "../game";
 import { useGameStore, ITEMS } from "../store";
 import * as THREE from "three";
+import { DynamicObject } from "./DynamicObject";
 const capeVertexShader = `
 varying vec2 vUv;
 uniform float time;
@@ -72,6 +73,7 @@ function Cape() {
 export function Player() {
   const groupRef = useRef<THREE.Group>(null);
   const store = useGameStore();
+  const LANE_WIDTH = store.globalSettings.laneWidth;
 
   // Limbs for animation
   const torsoRef = useRef<THREE.Group>(null);
@@ -1017,7 +1019,13 @@ export function Player() {
   return (
     <group ref={groupRef}>
       <group rotation={[0, Math.PI, 0]}>
-        {charId === "c5" ? robot : charId === "c4" ? ghost : charId === "c3" ? goldensun : charId === "c2" ? voidwalker : adventurer}
+        {(charDef as any).parts ? (
+            <group position={[0, 1.4, 0]}>
+                <DynamicObject parts={(charDef as any).parts} />
+            </group>
+        ) : (
+            charId === "c5" ? robot : charId === "c4" ? ghost : charId === "c3" ? goldensun : charId === "c2" ? voidwalker : adventurer
+        )}
       </group>
     </group>
   );
