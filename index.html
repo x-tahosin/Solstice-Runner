@@ -4,11 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Solstice Runner</title>
-    <script type="module" crossorigin src="/Solstice-Runner/assets/index-BjRMK1oM.js"></script>
-    <link rel="stylesheet" crossorigin href="/Solstice-Runner/assets/index-CLeXCeSy.css">
+    <script type="module" crossorigin src="/Solstice-Runner/assets/index-BdjI3MpH.js"></script>
+    <link rel="stylesheet" crossorigin href="/Solstice-Runner/assets/index-BJ7Tz7gb.css">
   </head>
   <body>
     <div id="root"></div>
+    <div id="error-overlay" style="position: absolute; top: 0; left: 0; background: rgba(255,0,0,0.8); color: white; z-index: 9999; padding: 20px; display: none; font-family: monospace; white-space: pre-wrap; width: 100vw; height: 100vh; overflow: auto; pointer-events: none;"></div>
+    <script>
+      const overlay = document.getElementById('error-overlay');
+      window.addEventListener('error', (event) => {
+        overlay.style.display = 'block';
+        overlay.innerText += event.message + '\n' + (event.error ? event.error.stack : '') + '\n\n';
+      });
+      const originalConsoleError = console.error;
+      console.error = (...args) => {
+        overlay.style.display = 'block';
+        overlay.innerText += args.join(' ') + '\n\n';
+        originalConsoleError.apply(console, args);
+      };
+    </script>
   </body>
 </html>
 
