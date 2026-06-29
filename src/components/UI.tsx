@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { state, resetGame, getActiveMap } from '../game';
-import { Flame, Target, Trophy, User, Map as MapIcon, ArrowLeft, Cloud, TreePine, Moon, Stars, Cpu, Ghost, Skull, Shuffle, Sparkles, Key } from 'lucide-react';
+import { Flame, Target, Trophy, User, Map as MapIcon, ArrowLeft, Cloud, TreePine, Moon, Stars, Cpu, Ghost, Skull, Shuffle, Sparkles, Key, HelpCircle } from 'lucide-react';
 import { useGameStore, ITEMS } from '../store';
 
 export function UI() {
@@ -223,8 +223,64 @@ export function UI() {
              <button onClick={() => { state.status = 'AI_FORGE'; setStatus('AI_FORGE'); }} className="flex items-center gap-2 bg-gradient-to-r from-orange-900/80 to-red-900/80 hover:from-orange-800 hover:to-red-800 text-zinc-200 px-5 py-3 rounded-full font-bold uppercase tracking-widest text-xs sm:text-sm transition-colors border border-orange-500/50 hover:border-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.4)]">
                  <Sparkles size={16} className="text-orange-300" /> AI Forge
              </button>
+             <button onClick={() => { state.status = 'HELP'; setStatus('HELP'); }} className="flex items-center gap-2 bg-blue-900/80 hover:bg-blue-700 text-zinc-200 px-5 py-3 rounded-full font-bold uppercase tracking-widest text-xs sm:text-sm transition-colors border border-blue-500/50 hover:border-blue-400 shadow-lg">
+                 <HelpCircle size={16} className="text-blue-300" /> How to Play
+             </button>
           </div>
         </div>
+      )}
+
+      {status === 'HELP' && (
+         <div className="absolute inset-0 bg-black/90 flex flex-col items-center overflow-y-auto py-12 px-6 pointer-events-auto backdrop-blur-md">
+             <div className="w-full max-w-3xl relative">
+                 <button onClick={() => { state.status = 'MENU'; setStatus('MENU'); }} className="absolute -top-6 left-0 text-white flex items-center gap-2 font-bold tracking-widest uppercase hover:text-orange-400 transition-colors z-10">
+                     <ArrowLeft /> Back
+                 </button>
+
+                 <h2 className="text-4xl font-black text-white italic tracking-tighter mb-8 mt-12 text-center border-b border-zinc-800 pb-4">HOW TO <span className="text-blue-500">PLAY</span></h2>
+
+                 <div className="space-y-8 text-zinc-300 leading-relaxed" style={{ fontFamily: "'Inter', sans-serif" }}>
+                     <section className="bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800">
+                         <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Target className="text-orange-500" /> Controls</h3>
+                         <ul className="list-disc pl-5 space-y-2">
+                             <li><strong className="text-white">Left / Right Arrows or A / D:</strong> Move between lanes to dodge tall columns.</li>
+                             <li><strong className="text-white">Up Arrow or W:</strong> Jump over low hurdles and gaps.</li>
+                             <li><strong className="text-white">Down Arrow or S:</strong> Slide under high archways.</li>
+                             <li><strong className="text-white">Mobile:</strong> Swipe Left, Right, Up, or Down to control your character.</li>
+                         </ul>
+                     </section>
+
+                     <section className="bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800">
+                         <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><User className="text-purple-400" /> Game Options</h3>
+                         <p className="mb-2">You can customize your experience in the main menu:</p>
+                         <ul className="list-disc pl-5 space-y-2">
+                             <li><strong className="text-white">Heroes:</strong> Buy and equip new characters with the Fireballs you collect.</li>
+                             <li><strong className="text-white">Maps:</strong> Unlock distinct environments like the Haunted Graveyard or the dynamic Multi Map.</li>
+                             <li><strong className="text-white">Skills:</strong> Upgrade your abilities permanently, such as increasing your Coin Magnet range or Starting Speed.</li>
+                         </ul>
+                     </section>
+
+                     <section className="bg-zinc-900/50 p-6 rounded-2xl border border-orange-900/50 shadow-[0_0_20px_rgba(249,115,22,0.1)]">
+                         <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Sparkles className="text-orange-500" /> AI Forge & Gemini API</h3>
+                         <p className="mb-4">The <strong className="text-orange-400">AI Forge</strong> is a revolutionary feature that lets you create your own game content using AI!</p>
+                         <ul className="list-disc pl-5 space-y-4">
+                             <li>
+                                 <strong className="text-white">How to Setup:</strong> Click the "Get API Key" link in the AI Forge menu to generate a free Google Gemini API key. Paste it into the game to activate the Forge.
+                             </li>
+                             <li>
+                                 <strong className="text-white">Characters:</strong> Type what you want (e.g., "A fire demon") and the AI will generate a custom 3D model with glowing parts and animations.
+                             </li>
+                             <li>
+                                 <strong className="text-white">Maps:</strong> Describe an environment (e.g., "Cyberpunk city") and the AI will build the skybox, lighting, and background decorations! Gameplay obstacles will be added automatically.
+                             </li>
+                             <li>
+                                 <strong className="text-white">Cost:</strong> All AI-generated items cost 50 Fireballs by default unless you explicitly tell the AI to make them free in your prompt!
+                             </li>
+                         </ul>
+                     </section>
+                 </div>
+             </div>
+         </div>
       )}
 
       {status === 'CHOOSE_CHARACTER' && (
