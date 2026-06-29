@@ -171,7 +171,7 @@ export function UI() {
           <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-transparent to-black/80 -z-10" />
 
           {/* Top Bar - Lifetime Stats */}
-          <div className="w-full mb-auto flex justify-between px-6">
+          <div className="absolute top-6 left-0 right-0 w-full flex justify-between px-6 z-10">
                <div className="flex flex-col items-start bg-black/40 px-6 py-3 rounded-full border border-orange-500/20">
                    <p className="text-orange-200/50 uppercase text-xs font-bold tracking-widest">Highscore</p>
                    <p className="flex items-center gap-2 font-mono text-2xl font-black text-white"><Trophy size={18} className="text-yellow-400"/> {store.highscore}m</p>
